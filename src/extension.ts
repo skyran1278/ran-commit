@@ -1,28 +1,71 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
-  // Use the console to output diagnostic information (console.log) and errors (console.error)
-  // This line of code will only be executed once when your extension is activated
-  console.log('Congratulations, your extension "git-commit" is now active!');
+import { generateCommitMessage } from './generate';
 
-  // The command has been defined in the package.json file
-  // Now provide the implementation of the command with registerCommand
-  // The commandId parameter must match the command field in package.json
+interface Repository {
+  rootUri: vscode.Uri;
+  inputBox: { value: string };
+  diff(staged: boolean): Promise<string>;
+}
+
+interface GitAPI {
+  repositories: Repository[];
+  getRepository(uri: vscode.Uri): Repository | null;
+}
+
+export function activate(context: vscode.ExtensionContext) {
   const disposable = vscode.commands.registerCommand(
-    'git-commit.helloWorld',
-    () => {
-      // The code you place here will be executed every time your command is executed
-      // Display a message box to the user
-      vscode.window.showInformationMessage('Hello World from Git Commit!');
+    'git-commit.generateCommit',
+    async () => {
+      const gitExt = vscode.extensions.getExtension<{
+        getAPI(v: number): GitAPI;
+      }>('vscode.git');
+      if (!gitExt?.isActive) {
+        vscode.window.showErrorMessage('Git extension not available');
+        return;
+      }
+
+      const api = gitExt.exports.getAPI(1);
+      const activeEditor = vscode.window.activeTextEditor;
+      const repo =
+        (activeEditor && api.getRepository(activeEditor.document.uri)) ??
+        api.repositories[0];
+      if (!repo) {
+        vscode.window.showErrorMessage('No git repository found');
+        return;
+      }
+
+      const [staged, unstaged] = await Promise.all([
+        repo.diff(true),
+        repo.diff(false),
+      ]);
+      const diff = staged || unstaged;
+      if (!diff) {
+        vscode.window.showWarningMessage(
+          'No changes found to generate a commit message from',
+        );
+        return;
+      }
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.SourceControl,
+          title: 'Generating commit message...',
+        },
+        async () => {
+          try {
+            repo.inputBox.value = await generateCommitMessage(diff);
+          } catch (err: unknown) {
+            vscode.window.showErrorMessage(
+              `Failed to generate commit message: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        },
+      );
     },
   );
 
   context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
