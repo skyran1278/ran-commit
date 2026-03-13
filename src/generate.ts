@@ -11,25 +11,36 @@ const CLAUDE_CLI = 'claude';
 // --print: non-interactive mode; --output-format text: plain text output (no JSON envelope)
 const CLAUDE_ARGS = ['--print', '--output-format', 'text'] as const;
 
-const SYSTEM_PROMPT = `You are a git commit message generator. Generate a single commit message strictly following Conventional Commits 1.0.0.
+export interface CommitContext {
+  diff: string;
+  status: string;
+  branch: string;
+  log: string;
+}
 
-Format:
-<type>[optional scope]: <short description>
+function buildPrompt(context: CommitContext): string {
+  return `## Context
 
-- explain the motivation behind this change
+- Current git status:
+${context.status}
 
-Type must be one of: fix, feat, build, chore, ci, docs, style, refactor, perf, test
+- Current git diff (staged and unstaged changes):
+${context.diff}
 
-Rules:
-- description: imperative, present tense, lowercase start, no period
-- body: blank line after description, use dash bullets, explain WHY not what, each line ≤ 80 chars
-- omit body only for trivial changes like typo fixes
-- breaking changes: add ! before colon or BREAKING CHANGE: footer
+- Current branch: ${context.branch}
 
-Output only the commit message, no explanation, no code fences.`;
+- Recent commits:
+${context.log}
 
-export async function generateCommitMessage(diff: string): Promise<string> {
-  const prompt = `${SYSTEM_PROMPT}\n\nGenerate a commit message for this diff:\n\n${diff}`;
+## Your task
+
+Based on the above changes and commit history style, generate a single commit message. Output only the commit message, no explanation, no code fences.`;
+}
+
+export async function generateCommitMessage(
+  context: CommitContext,
+): Promise<string> {
+  const prompt = buildPrompt(context);
 
   const message = await new Promise<string>((resolve, reject) => {
     const child = _impl.spawnFn(CLAUDE_CLI, [...CLAUDE_ARGS], {

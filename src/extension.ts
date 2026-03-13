@@ -1,6 +1,19 @@
+import { execFile } from 'child_process';
 import * as vscode from 'vscode';
 
 import { generateCommitMessage } from './generate';
+
+function execGit(repoPath: string, args: string[]): Promise<string> {
+  return new Promise((resolve) => {
+    execFile('git', args, { cwd: repoPath }, (err, stdout) => {
+      if (err) {
+        resolve('');
+      } else {
+        resolve(stdout.trim());
+      }
+    });
+  });
+}
 
 interface Repository {
   rootUri: vscode.Uri;
@@ -35,9 +48,13 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const [staged, unstaged] = await Promise.all([
+      const repoPath = repo.rootUri.fsPath;
+      const [staged, unstaged, status, branch, log] = await Promise.all([
         repo.diff(true),
         repo.diff(false),
+        execGit(repoPath, ['status']),
+        execGit(repoPath, ['branch', '--show-current']),
+        execGit(repoPath, ['log', '--oneline', '-10']),
       ]);
       const diff = staged || unstaged;
       if (!diff) {
@@ -54,7 +71,12 @@ export function activate(context: vscode.ExtensionContext) {
         },
         async () => {
           try {
-            repo.inputBox.value = await generateCommitMessage(diff);
+            repo.inputBox.value = await generateCommitMessage({
+              diff,
+              status,
+              branch,
+              log,
+            });
           } catch (err: unknown) {
             vscode.window.showErrorMessage(
               `Failed to generate commit message: ${err instanceof Error ? err.message : String(err)}`,

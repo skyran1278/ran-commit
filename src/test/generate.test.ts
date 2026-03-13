@@ -5,6 +5,13 @@ import { Writable } from 'stream';
 
 import * as generate from '../generate';
 
+const DEFAULT_CONTEXT: generate.CommitContext = {
+  diff: 'diff content',
+  status: 'M src/file.ts',
+  branch: 'main',
+  log: 'abc1234 initial commit',
+};
+
 type FakeSpawnOpts = {
   stdout?: string;
   stderr?: string;
@@ -65,14 +72,14 @@ suite('generateCommitMessage', () => {
       stdout: '  feat: add login\n',
       exitCode: 0,
     });
-    const result = await generate.generateCommitMessage('diff content');
+    const result = await generate.generateCommitMessage(DEFAULT_CONTEXT);
     assert.strictEqual(result, 'feat: add login');
   });
 
   test('throws "Claude CLI not found" on ENOENT', async () => {
     generate._impl.spawnFn = makeFakeSpawn({ errorCode: 'ENOENT' });
     await assert.rejects(
-      () => generate.generateCommitMessage('diff'),
+      () => generate.generateCommitMessage(DEFAULT_CONTEXT),
       (err: Error) => {
         assert.ok(err.message.includes('Claude CLI not found'));
         assert.ok(
@@ -86,7 +93,7 @@ suite('generateCommitMessage', () => {
   test('throws "Claude CLI failed" on non-ENOENT spawn error', async () => {
     generate._impl.spawnFn = makeFakeSpawn({ errorCode: 'EACCES' });
     await assert.rejects(
-      () => generate.generateCommitMessage('diff'),
+      () => generate.generateCommitMessage(DEFAULT_CONTEXT),
       (err: Error) => {
         assert.ok(err.message.includes('Claude CLI failed'));
         return true;
@@ -100,7 +107,7 @@ suite('generateCommitMessage', () => {
       stderr: 'rate limit exceeded',
     });
     await assert.rejects(
-      () => generate.generateCommitMessage('diff'),
+      () => generate.generateCommitMessage(DEFAULT_CONTEXT),
       (err: Error) => {
         assert.ok(err.message.includes('exited with code 1'));
         assert.ok(err.message.includes('rate limit exceeded'));
@@ -112,7 +119,7 @@ suite('generateCommitMessage', () => {
   test('throws "empty response" when stdout trims to empty', async () => {
     generate._impl.spawnFn = makeFakeSpawn({ stdout: '   \n', exitCode: 0 });
     await assert.rejects(
-      () => generate.generateCommitMessage('diff'),
+      () => generate.generateCommitMessage(DEFAULT_CONTEXT),
       /Claude CLI returned an empty response/,
     );
   });
@@ -124,7 +131,10 @@ suite('generateCommitMessage', () => {
       capturedProc = inner(...args);
       return capturedProc;
     };
-    await generate.generateCommitMessage('my special diff');
+    await generate.generateCommitMessage({
+      ...DEFAULT_CONTEXT,
+      diff: 'my special diff',
+    });
     const written = Buffer.concat(capturedProc._stdinChunks).toString();
     assert.ok(written.includes('my special diff'));
   });
