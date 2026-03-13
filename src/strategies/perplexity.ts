@@ -3,11 +3,11 @@ import { LLMStrategy } from './index';
 export class PerplexityStrategy implements LLMStrategy {
   constructor(
     private readonly apiKey: string,
-    private readonly model: string = 'sonar',
+    private readonly model: string = 'perplexity/sonar',
   ) {}
 
   async sendRequest(prompt: string): Promise<string> {
-    const response = await fetch('https://api.perplexity.ai/v1/sonar', {
+    const response = await fetch('https://api.perplexity.ai/v1/agent', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -15,7 +15,7 @@ export class PerplexityStrategy implements LLMStrategy {
       },
       body: JSON.stringify({
         model: this.model,
-        messages: [{ role: 'user', content: prompt }],
+        input: prompt,
       }),
     });
 
@@ -26,8 +26,8 @@ export class PerplexityStrategy implements LLMStrategy {
     }
 
     const data = (await response.json()) as {
-      choices: [{ message: { content: string } }];
+      output: [{ content: [{ text: string }] }];
     };
-    return data.choices[0].message.content;
+    return data.output[0].content[0].text;
   }
 }
