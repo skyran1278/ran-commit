@@ -3,6 +3,7 @@
   "displayName": "Git Commit",
   "description": "AI-powered git commit message generator",
   "version": "0.0.1",
+  "publisher": "skyran",
   "engines": {
     "vscode": "^1.110.0"
   },
@@ -30,7 +31,12 @@
       "properties": {
         "git-commit.method": {
           "type": "string",
-          "enum": ["auto", "vscode-lm", "claude-cli", "perplexity"],
+          "enum": [
+            "auto",
+            "vscode-lm",
+            "claude-cli",
+            "perplexity"
+          ],
           "default": "auto",
           "description": "How to generate commit messages. `auto` tries vscode.lm first, falls back to Claude CLI. `vscode-lm` requires a model provider (e.g. GitHub Copilot). `claude-cli` requires the `claude` CLI on PATH. `perplexity` uses the Perplexity API (set key via 'Git Commit: Store Perplexity API Key')."
         },
