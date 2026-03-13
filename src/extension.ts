@@ -34,7 +34,7 @@ async function createStrategy(
   };
 
   if (method === 'claude-cli') {
-    return new ClaudeCliStrategy();
+    return new ClaudeCliStrategy(family || undefined);
   }
 
   if (method === 'perplexity') {
@@ -66,7 +66,7 @@ async function createStrategy(
   if (models[0]) {
     return new VscodeLmStrategy(models[0], token);
   }
-  return new ClaudeCliStrategy();
+  return new ClaudeCliStrategy(family || undefined);
 }
 
 export function activate(context: vscode.ExtensionContext) {

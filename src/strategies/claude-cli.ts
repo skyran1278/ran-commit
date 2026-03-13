@@ -9,17 +9,20 @@ type SpawnFn = (
 ) => ReturnType<typeof spawn>;
 
 export class ClaudeCliStrategy implements LLMStrategy {
-  constructor(private readonly spawnFn: SpawnFn = spawn as SpawnFn) {}
+  constructor(
+    private readonly model?: string,
+    private readonly spawnFn: SpawnFn = spawn as SpawnFn,
+  ) {}
 
   sendRequest(prompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const child = this.spawnFn(
-        'claude',
-        ['--print', '--output-format', 'text'],
-        {
-          stdio: ['pipe', 'pipe', 'pipe'],
-        },
-      );
+      const args = ['--print', '--output-format', 'text'];
+      if (this.model) {
+        args.push('--model', this.model);
+      }
+      const child = this.spawnFn('claude', args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
 
       const stdoutChunks: Buffer[] = [];
       const stderrChunks: Buffer[] = [];
