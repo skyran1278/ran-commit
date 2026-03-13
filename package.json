@@ -19,6 +19,10 @@
         "command": "git-commit.generateCommit",
         "title": "Generate Commit Message",
         "icon": "$(sparkle)"
+      },
+      {
+        "command": "git-commit.storePerplexityApiKey",
+        "title": "Git Commit: Store Perplexity API Key"
       }
     ],
     "configuration": {
@@ -26,9 +30,9 @@
       "properties": {
         "git-commit.method": {
           "type": "string",
-          "enum": ["auto", "vscode-lm", "claude-cli"],
+          "enum": ["auto", "vscode-lm", "claude-cli", "perplexity"],
           "default": "auto",
-          "description": "How to generate commit messages. `auto` tries vscode.lm first, falls back to Claude CLI. `vscode-lm` requires a model provider (e.g. GitHub Copilot). `claude-cli` requires the `claude` CLI on PATH."
+          "description": "How to generate commit messages. `auto` tries vscode.lm first, falls back to Claude CLI. `vscode-lm` requires a model provider (e.g. GitHub Copilot). `claude-cli` requires the `claude` CLI on PATH. `perplexity` uses the Perplexity API (set key via 'Git Commit: Store Perplexity API Key')."
         },
         "git-commit.modelFamily": {
           "type": "string",

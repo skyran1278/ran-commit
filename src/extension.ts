@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 
-import { ClaudeCliStrategy, generateCommitMessage, LLMStrategy } from './generate';
+import {
+  ClaudeCliStrategy,
+  generateCommitMessage,
+  LLMStrategy,
+  PerplexityStrategy,
+} from './generate';
 import { getGitContext } from './git';
 
 interface Repository {
@@ -36,6 +41,7 @@ class VscodeLmStrategy implements LLMStrategy {
 
 async function createStrategy(
   token: vscode.CancellationToken,
+  context: vscode.ExtensionContext,
 ): Promise<LLMStrategy | null> {
   const cfg = vscode.workspace.getConfiguration('git-commit');
   const method = cfg.get<string>('method', 'auto');
@@ -44,6 +50,17 @@ async function createStrategy(
 
   if (method === 'claude-cli') {
     return new ClaudeCliStrategy();
+  }
+
+  if (method === 'perplexity') {
+    const apiKey = await context.secrets.get('perplexity-api-key');
+    if (!apiKey) {
+      vscode.window.showErrorMessage(
+        'Perplexity API key not set. Run "Git Commit: Store Perplexity API Key" to configure it.',
+      );
+      return null;
+    }
+    return new PerplexityStrategy(apiKey, family || undefined);
   }
 
   if (method === 'vscode-lm') {
@@ -66,6 +83,23 @@ async function createStrategy(
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'git-commit.storePerplexityApiKey',
+      async () => {
+        const key = await vscode.window.showInputBox({
+          prompt: 'Enter your Perplexity API key',
+          password: true,
+          ignoreFocusOut: true,
+        });
+        if (key !== undefined) {
+          await context.secrets.store('perplexity-api-key', key);
+          vscode.window.showInformationMessage('Perplexity API key saved.');
+        }
+      },
+    ),
+  );
+
   const disposable = vscode.commands.registerCommand(
     'git-commit.generateCommit',
     async () => {
@@ -102,7 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
           title: 'Generating commit message...',
         },
         async (_, token) => {
-          const strategy = await createStrategy(token);
+          const strategy = await createStrategy(token, context);
           if (!strategy) { return; }
 
           try {
