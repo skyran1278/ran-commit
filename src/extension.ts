@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+
 import * as vscode from 'vscode';
 
 import { generateCommitMessage } from './generate';
@@ -71,12 +72,17 @@ export function activate(context: vscode.ExtensionContext) {
         },
         async () => {
           try {
-            repo.inputBox.value = await generateCommitMessage({
+            const userMessage = repo.inputBox.value.trim();
+            const generated = await generateCommitMessage({
               diff,
               status,
               branch,
               log,
+              ...(userMessage && { userMessage }),
             });
+            repo.inputBox.value = userMessage
+              ? `${userMessage}\n\n${generated}`
+              : generated;
           } catch (err: unknown) {
             vscode.window.showErrorMessage(
               `Failed to generate commit message: ${err instanceof Error ? err.message : String(err)}`,

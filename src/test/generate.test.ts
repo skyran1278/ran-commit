@@ -138,4 +138,32 @@ suite('generateCommitMessage', () => {
     const written = Buffer.concat(capturedProc._stdinChunks).toString();
     assert.ok(written.includes('my special diff'));
   });
+
+  test('includes userMessage in prompt when provided', async () => {
+    let capturedProc: any;
+    const inner = makeFakeSpawn({ stdout: 'feat: x', exitCode: 0 });
+    generate._impl.spawnFn = (...args: Parameters<typeof inner>) => {
+      capturedProc = inner(...args);
+      return capturedProc;
+    };
+    await generate.generateCommitMessage({
+      ...DEFAULT_CONTEXT,
+      userMessage: 'focus on the auth changes',
+    });
+    const written = Buffer.concat(capturedProc._stdinChunks).toString();
+    assert.ok(written.includes('## User instructions'));
+    assert.ok(written.includes('focus on the auth changes'));
+  });
+
+  test('omits user instructions section when no userMessage', async () => {
+    let capturedProc: any;
+    const inner = makeFakeSpawn({ stdout: 'feat: x', exitCode: 0 });
+    generate._impl.spawnFn = (...args: Parameters<typeof inner>) => {
+      capturedProc = inner(...args);
+      return capturedProc;
+    };
+    await generate.generateCommitMessage(DEFAULT_CONTEXT);
+    const written = Buffer.concat(capturedProc._stdinChunks).toString();
+    assert.ok(!written.includes('## User instructions'));
+  });
 });

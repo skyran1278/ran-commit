@@ -16,6 +16,7 @@ export interface CommitContext {
   status: string;
   branch: string;
   log: string;
+  userMessage?: string;
 }
 
 function buildPrompt(context: CommitContext): string {
@@ -31,7 +32,7 @@ ${context.diff}
 
 - Recent commits:
 ${context.log}
-
+${context.userMessage ? `\n- User instructions:\n${context.userMessage}` : ''}
 ## Your task
 
 Based on the above changes and commit history style, generate a single commit message. Output only the commit message, no explanation, no code fences.`;
