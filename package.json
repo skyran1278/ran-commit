@@ -38,6 +38,11 @@
           "type": "string",
           "default": "",
           "description": "Language model family to use when method is `vscode-lm` or `auto` (e.g. `gpt-4o`, `claude-sonnet`). Leave empty to use any available model."
+        },
+        "git-commit.modelVendor": {
+          "type": "string",
+          "default": "",
+          "description": "Language model vendor to use when method is `vscode-lm` (e.g. `copilot`, `anthropic`). Leave empty to match any vendor."
         }
       }
     },

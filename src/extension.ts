@@ -27,7 +27,11 @@ async function createStrategy(
   const cfg = vscode.workspace.getConfiguration('git-commit');
   const method = cfg.get<string>('method', 'auto');
   const family = cfg.get<string>('modelFamily', '');
-  const selector = family ? { family } : {};
+  const vendor = cfg.get<string>('modelVendor', '');
+  const selector = {
+    ...(vendor ? { vendor } : {}),
+    ...(family ? { family } : {}),
+  };
 
   if (method === 'claude-cli') {
     return new ClaudeCliStrategy();
@@ -41,7 +45,9 @@ async function createStrategy(
       );
       return null;
     }
-    return new PerplexityStrategy(apiKey, family || undefined);
+    const model =
+      vendor && family ? `${vendor}/${family}` : family || undefined;
+    return new PerplexityStrategy(apiKey, model);
   }
 
   if (method === 'vscode-lm') {
@@ -118,7 +124,9 @@ export function activate(context: vscode.ExtensionContext) {
         },
         async (_, token) => {
           const strategy = await createStrategy(token, context);
-          if (!strategy) { return; }
+          if (!strategy) {
+            return;
+          }
 
           try {
             const generated = await generateCommitMessage(gitContext, strategy);
