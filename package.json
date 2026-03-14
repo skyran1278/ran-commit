@@ -1,6 +1,6 @@
 {
-  "name": "git-commit",
-  "displayName": "Git Commit",
+  "name": "ran-git-commit",
+  "displayName": "AI Git Commit Message",
   "description": "AI-powered git commit message generator",
   "version": "0.0.1",
   "publisher": "skyran",
