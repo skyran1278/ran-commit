@@ -6,14 +6,14 @@ suite('Extension Test Suite', () => {
   test('command is registered', async () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(
-      commands.includes('git-commit.generateCommit'),
-      'git-commit.generateCommit should be registered',
+      commands.includes('ranCommit.generateCommit'),
+      'ranCommit.generateCommit should be registered',
     );
   });
 
   test('extension is active', async () => {
     const ext = vscode.extensions.all.find(
-      (e) => e.packageJSON?.name === 'git-commit',
+      (e) => e.packageJSON?.name === 'ran-commit',
     );
     assert.ok(ext, 'extension should be found');
     await ext!.activate();
@@ -22,7 +22,7 @@ suite('Extension Test Suite', () => {
 
   test('executing the command does not throw "command not found"', async () => {
     try {
-      await vscode.commands.executeCommand('git-commit.generateCommit');
+      await vscode.commands.executeCommand('ranCommit.generateCommit');
     } catch (err: unknown) {
       const msg = (err as Error).message ?? String(err);
       assert.ok(!msg.includes('command not found'), `unexpected error: ${msg}`);

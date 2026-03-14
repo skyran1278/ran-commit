@@ -24,7 +24,7 @@ async function createStrategy(
   token: vscode.CancellationToken,
   context: vscode.ExtensionContext,
 ): Promise<LLMStrategy | null> {
-  const cfg = vscode.workspace.getConfiguration('git-commit');
+  const cfg = vscode.workspace.getConfiguration('ranCommit');
   const method = cfg.get<string>('method', 'auto');
   const family = cfg.get<string>('modelFamily', '');
   const vendor = cfg.get<string>('modelVendor', '');
@@ -72,7 +72,7 @@ async function createStrategy(
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'git-commit.storePerplexityApiKey',
+      'ranCommit.storePerplexityApiKey',
       async () => {
         const key = await vscode.window.showInputBox({
           prompt: 'Enter your Perplexity API key',
@@ -88,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   const disposable = vscode.commands.registerCommand(
-    'git-commit.generateCommit',
+    'ranCommit.generateCommit',
     async () => {
       const gitExt = vscode.extensions.getExtension<{
         getAPI(v: number): GitAPI;

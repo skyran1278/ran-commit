@@ -1,6 +1,6 @@
 {
-  "name": "ran-git-commit",
-  "displayName": "AI Git Commit Message",
+  "name": "ran-commit",
+  "displayName": "Ran Commit",
   "description": "AI-powered git commit message generator",
   "version": "0.0.1",
   "publisher": "skyran",
@@ -21,19 +21,19 @@
   "contributes": {
     "commands": [
       {
-        "command": "git-commit.generateCommit",
+        "command": "ranCommit.generateCommit",
         "title": "Generate Commit Message",
         "icon": "$(sparkle)"
       },
       {
-        "command": "git-commit.storePerplexityApiKey",
-        "title": "Git Commit: Store Perplexity API Key"
+        "command": "ranCommit.storePerplexityApiKey",
+        "title": "Ran Commit: Store Perplexity API Key"
       }
     ],
     "configuration": {
-      "title": "Git Commit",
+      "title": "Ran Commit",
       "properties": {
-        "git-commit.method": {
+        "ranCommit.method": {
           "type": "string",
           "enum": [
             "auto",
@@ -44,12 +44,12 @@
           "default": "auto",
           "description": "How to generate commit messages. `auto` tries vscode.lm first, falls back to Claude CLI. `vscode-lm` requires a model provider (e.g. GitHub Copilot). `claude-cli` requires the `claude` CLI on PATH. `perplexity` uses the Perplexity API (set key via 'Git Commit: Store Perplexity API Key')."
         },
-        "git-commit.modelFamily": {
+        "ranCommit.modelFamily": {
           "type": "string",
           "default": "",
           "description": "Model family/name to use. For `vscode-lm`/`auto`: filters available models (e.g. `gpt-4o`, `claude-sonnet`). For `claude-cli`: passed as the model family. For `perplexity`: the model name portion of `vendor/model` (e.g. `sonar`; default `perplexity/sonar`). Leave empty to use the default."
         },
-        "git-commit.modelVendor": {
+        "ranCommit.modelVendor": {
           "type": "string",
           "default": "",
           "description": "Model vendor to use. For `vscode-lm`/`auto`: filters available models (e.g. `copilot`, `anthropic`). For `perplexity`: the vendor prefix in `vendor/model` (e.g. `perplexity`). Not used by `claude-cli`. Leave empty to use the default."
@@ -59,7 +59,7 @@
     "menus": {
       "scm/title": [
         {
-          "command": "git-commit.generateCommit",
+          "command": "ranCommit.generateCommit",
           "when": "scmProvider == git",
           "group": "navigation"
         }

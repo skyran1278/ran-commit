@@ -21,13 +21,14 @@ To run only the unit tests (no VSCode host needed), compile first then run the t
 
 This is a VSCode extension with two source files:
 
-- **[src/extension.ts](src/extension.ts)** — VSCode entry point. Registers the `git-commit.generateCommit` command, which appears as a sparkle icon in the SCM title bar. On invocation it resolves the active git repo via the built-in `vscode.git` extension API, fetches the staged diff (falling back to unstaged), and calls `generateCommitMessage`.
+- **[src/extension.ts](src/extension.ts)** — VSCode entry point. Registers the `ranCommit.generateCommit` command, which appears as a sparkle icon in the SCM title bar. On invocation it resolves the active git repo via the built-in `vscode.git` extension API, fetches the staged diff (falling back to unstaged), and calls `generateCommitMessage`.
 
 - **[src/generate.ts](src/generate.ts)** — Core logic. Spawns the `claude` CLI (`@anthropic-ai/claude-code`) as a subprocess, pipes the diff as a prompt, and returns the trimmed stdout as the commit message. The `_impl.spawnFn` export is the seam used by unit tests to inject a fake spawn without needing VSCode.
 
 **Build**: esbuild bundles `src/extension.ts` → `dist/extension.js` (CJS, `vscode` externalized). Tests compile via `tsc` to `out/` and run via `@vscode/test-cli`.
 
 **Two test suites**:
+
 - `src/test/generate.test.ts` — pure unit tests, inject fake child processes via `generate._impl.spawnFn`
 - `src/test/extension.test.ts` — integration tests requiring a VSCode host instance
 
