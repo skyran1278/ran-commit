@@ -3,8 +3,7 @@ import type { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { Writable } from 'stream';
 
-import { generateCommitMessage } from '../generate';
-import type { CommitContext } from '../generate';
+import { generateCommitMessage, type CommitContext } from '../generate';
 import { ClaudeCliStrategy, LLMStrategy } from '../strategies';
 
 const DEFAULT_CONTEXT: CommitContext = {
@@ -45,8 +44,12 @@ function makeFakeSpawn(opts: FakeSpawnOpts) {
         proc.emit('error', err);
         return;
       }
-      if (opts.stdout) { stdout.emit('data', Buffer.from(opts.stdout)); }
-      if (opts.stderr) { stderr.emit('data', Buffer.from(opts.stderr)); }
+      if (opts.stdout) {
+        stdout.emit('data', Buffer.from(opts.stdout));
+      }
+      if (opts.stderr) {
+        stderr.emit('data', Buffer.from(opts.stderr));
+      }
       proc.emit('close', opts.exitCode ?? 0);
     });
 
@@ -55,7 +58,9 @@ function makeFakeSpawn(opts: FakeSpawnOpts) {
 }
 
 suite('generateCommitMessage', () => {
-  function makeStrategy(sendRequest: (p: string) => Promise<string>): LLMStrategy {
+  function makeStrategy(
+    sendRequest: (p: string) => Promise<string>,
+  ): LLMStrategy {
     return { sendRequest };
   }
 
@@ -69,14 +74,24 @@ suite('generateCommitMessage', () => {
 
   test('propagates errors thrown by strategy', async () => {
     await assert.rejects(
-      () => generateCommitMessage(DEFAULT_CONTEXT, makeStrategy(async () => { throw new Error('API error'); })),
+      () =>
+        generateCommitMessage(
+          DEFAULT_CONTEXT,
+          makeStrategy(async () => {
+            throw new Error('API error');
+          }),
+        ),
       /API error/,
     );
   });
 
   test('throws "empty response" when response trims to empty', async () => {
     await assert.rejects(
-      () => generateCommitMessage(DEFAULT_CONTEXT, makeStrategy(async () => '   \n')),
+      () =>
+        generateCommitMessage(
+          DEFAULT_CONTEXT,
+          makeStrategy(async () => '   \n'),
+        ),
       /empty response/,
     );
   });
@@ -85,7 +100,10 @@ suite('generateCommitMessage', () => {
     let capturedPrompt = '';
     await generateCommitMessage(
       { ...DEFAULT_CONTEXT, diff: 'my special diff' },
-      makeStrategy(async (p) => { capturedPrompt = p; return 'feat: x'; }),
+      makeStrategy(async (p) => {
+        capturedPrompt = p;
+        return 'feat: x';
+      }),
     );
     assert.ok(capturedPrompt.includes('my special diff'));
   });
@@ -94,7 +112,10 @@ suite('generateCommitMessage', () => {
     let capturedPrompt = '';
     await generateCommitMessage(
       { ...DEFAULT_CONTEXT, userMessage: 'focus on the auth changes' },
-      makeStrategy(async (p) => { capturedPrompt = p; return 'feat: x'; }),
+      makeStrategy(async (p) => {
+        capturedPrompt = p;
+        return 'feat: x';
+      }),
     );
     assert.ok(capturedPrompt.includes('- User instructions:'));
     assert.ok(capturedPrompt.includes('focus on the auth changes'));
@@ -104,7 +125,10 @@ suite('generateCommitMessage', () => {
     let capturedPrompt = '';
     await generateCommitMessage(
       DEFAULT_CONTEXT,
-      makeStrategy(async (p) => { capturedPrompt = p; return 'feat: x'; }),
+      makeStrategy(async (p) => {
+        capturedPrompt = p;
+        return 'feat: x';
+      }),
     );
     assert.ok(!capturedPrompt.includes('- User instructions:'));
   });
@@ -112,25 +136,33 @@ suite('generateCommitMessage', () => {
 
 suite('ClaudeCliStrategy', () => {
   test('resolves with trimmed stdout on success', async () => {
-    const strategy = new ClaudeCliStrategy(makeFakeSpawn({ stdout: '  feat: add login\n', exitCode: 0 }) as any);
+    const strategy = new ClaudeCliStrategy(
+      makeFakeSpawn({ stdout: '  feat: add login\n', exitCode: 0 }) as any,
+    );
     const result = await strategy.sendRequest('prompt');
     assert.strictEqual(result, 'feat: add login');
   });
 
   test('throws "Claude CLI not found" on ENOENT', async () => {
-    const strategy = new ClaudeCliStrategy(makeFakeSpawn({ errorCode: 'ENOENT' }) as any);
+    const strategy = new ClaudeCliStrategy(
+      makeFakeSpawn({ errorCode: 'ENOENT' }) as any,
+    );
     await assert.rejects(
       () => strategy.sendRequest('prompt'),
       (err: Error) => {
         assert.ok(err.message.includes('Claude CLI not found'));
-        assert.ok(err.message.includes('npm install -g @anthropic-ai/claude-code'));
+        assert.ok(
+          err.message.includes('npm install -g @anthropic-ai/claude-code'),
+        );
         return true;
       },
     );
   });
 
   test('throws "Claude CLI failed" on non-ENOENT spawn error', async () => {
-    const strategy = new ClaudeCliStrategy(makeFakeSpawn({ errorCode: 'EACCES' }) as any);
+    const strategy = new ClaudeCliStrategy(
+      makeFakeSpawn({ errorCode: 'EACCES' }) as any,
+    );
     await assert.rejects(
       () => strategy.sendRequest('prompt'),
       /Claude CLI failed/,
@@ -138,7 +170,9 @@ suite('ClaudeCliStrategy', () => {
   });
 
   test('throws with exit code and stderr on non-zero exit', async () => {
-    const strategy = new ClaudeCliStrategy(makeFakeSpawn({ exitCode: 1, stderr: 'rate limit exceeded' }) as any);
+    const strategy = new ClaudeCliStrategy(
+      makeFakeSpawn({ exitCode: 1, stderr: 'rate limit exceeded' }) as any,
+    );
     await assert.rejects(
       () => strategy.sendRequest('prompt'),
       (err: Error) => {
