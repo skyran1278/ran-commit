@@ -6,6 +6,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.5]
+
+- Perplexity API key is now requested inline when not yet configured, removing the need to run a separate setup command first
+- Improved commit message quality by simplifying the prompt template with clearer output instructions
+
 ## [0.0.4]
 
 - Add `release-it` for automated releases.
