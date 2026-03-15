@@ -59,7 +59,10 @@ if (!content.includes(marker)) {
   process.exit(0);
 }
 
-const updated = content.replace(marker, `${marker}\n\n${entry}`);
+const updated = content.replace(
+  marker,
+  `${marker}\n\n## [${version}]\n\n${entry}`,
+);
 writeFileSync(changelogPath, updated);
 
 console.log(`Changelog updated for v${version}`);
