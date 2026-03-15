@@ -137,6 +137,7 @@ suite('generateCommitMessage', () => {
 suite('ClaudeCliStrategy', () => {
   test('resolves with trimmed stdout on success', async () => {
     const strategy = new ClaudeCliStrategy(
+      undefined,
       makeFakeSpawn({ stdout: '  feat: add login\n', exitCode: 0 }) as any,
     );
     const result = await strategy.sendRequest('prompt');
@@ -145,6 +146,7 @@ suite('ClaudeCliStrategy', () => {
 
   test('throws "Claude CLI not found" on ENOENT', async () => {
     const strategy = new ClaudeCliStrategy(
+      undefined,
       makeFakeSpawn({ errorCode: 'ENOENT' }) as any,
     );
     await assert.rejects(
@@ -161,6 +163,7 @@ suite('ClaudeCliStrategy', () => {
 
   test('throws "Claude CLI failed" on non-ENOENT spawn error', async () => {
     const strategy = new ClaudeCliStrategy(
+      undefined,
       makeFakeSpawn({ errorCode: 'EACCES' }) as any,
     );
     await assert.rejects(
@@ -171,6 +174,7 @@ suite('ClaudeCliStrategy', () => {
 
   test('throws with exit code and stderr on non-zero exit', async () => {
     const strategy = new ClaudeCliStrategy(
+      undefined,
       makeFakeSpawn({ exitCode: 1, stderr: 'rate limit exceeded' }) as any,
     );
     await assert.rejects(
@@ -190,7 +194,7 @@ suite('ClaudeCliStrategy', () => {
       capturedProc = inner(...args);
       return capturedProc;
     };
-    const strategy = new ClaudeCliStrategy(fakeSpawn as any);
+    const strategy = new ClaudeCliStrategy(undefined, fakeSpawn as any);
     await strategy.sendRequest('my special prompt');
     const written = Buffer.concat(capturedProc._stdinChunks).toString();
     assert.ok(written.includes('my special prompt'));
