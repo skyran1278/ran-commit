@@ -1,4 +1,4 @@
-# Git Commit
+# Ran - Commit Message Generator
 
 AI-powered git commit message generator for VS Code. Click the sparkle icon (✨) in the Source Control panel to instantly generate a commit message from your staged diff.
 
