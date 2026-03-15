@@ -20,6 +20,21 @@ interface GitAPI {
   getRepository(uri: vscode.Uri): Repository | null;
 }
 
+async function promptForApiKey(
+  context: vscode.ExtensionContext,
+): Promise<string | undefined> {
+  const key = await vscode.window.showInputBox({
+    prompt: 'Enter your Perplexity API key',
+    password: true,
+    ignoreFocusOut: true,
+  });
+  if (key !== undefined) {
+    await context.secrets.store('perplexity-api-key', key);
+    vscode.window.showInformationMessage('Perplexity API key saved.');
+  }
+  return key || undefined;
+}
+
 async function createStrategy(
   token: vscode.CancellationToken,
   context: vscode.ExtensionContext,
@@ -38,12 +53,12 @@ async function createStrategy(
   }
 
   if (method === 'perplexity') {
-    const apiKey = await context.secrets.get('perplexity-api-key');
+    let apiKey = await context.secrets.get('perplexity-api-key');
     if (!apiKey) {
-      vscode.window.showErrorMessage(
-        'Perplexity API key not set. Run "Git Commit: Store Perplexity API Key" to configure it.',
-      );
-      return null;
+      apiKey = await promptForApiKey(context);
+      if (!apiKey) {
+        return null;
+      }
     }
     const model =
       vendor && family ? `${vendor}/${family}` : family || undefined;
@@ -71,19 +86,8 @@ async function createStrategy(
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
-    vscode.commands.registerCommand(
-      'ranCommit.storePerplexityApiKey',
-      async () => {
-        const key = await vscode.window.showInputBox({
-          prompt: 'Enter your Perplexity API key',
-          password: true,
-          ignoreFocusOut: true,
-        });
-        if (key !== undefined) {
-          await context.secrets.store('perplexity-api-key', key);
-          vscode.window.showInformationMessage('Perplexity API key saved.');
-        }
-      },
+    vscode.commands.registerCommand('ranCommit.storePerplexityApiKey', () =>
+      promptForApiKey(context),
     ),
   );
 
