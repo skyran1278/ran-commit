@@ -66,9 +66,9 @@ This will automatically:
 
 Controlled by the `ranCommit.method` setting:
 
-| Setting | Requires |
-|---|---|
-| `auto` (default) | Tries `vscode-lm` first, falls back to `claude-cli` |
-| `vscode-lm` | A Copilot/LM provider installed in VSCode |
-| `claude-cli` | `claude` CLI on PATH |
-| `perplexity` | API key stored via `ran-commit: Store Perplexity API Key` command |
+| Setting          | Requires                                                          |
+| ---------------- | ----------------------------------------------------------------- |
+| `auto` (default) | Tries `vscode-lm` first, falls back to `claude-cli`               |
+| `vscode-lm`      | A Copilot/LM provider installed in VSCode                         |
+| `claude-cli`     | `claude` CLI on PATH                                              |
+| `perplexity`     | API key stored via `ran-commit: Store Perplexity API Key` command |
