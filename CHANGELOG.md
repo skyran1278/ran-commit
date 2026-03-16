@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.7]
+
+- Lowered minimum VS Code version requirement to 1.107.0, making the extension compatible with more installations
+
 ## [0.0.6]
 
 - Perplexity API key is now requested inline when not configured, so you no longer need to run a separate setup command
