@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.8]
+
+- Commit messages now follow Conventional Commits format by default, with style-aware generation that adapts to your repository's existing commit history.
+
 ## [0.0.7]
 
 - Lowered minimum VS Code version requirement to 1.107.0, making the extension compatible with more installations
