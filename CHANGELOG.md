@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.9]
+
+- Added conventional commits style fallback: the prompt now detects your project's commit style and generates messages that match it
+
 ## [0.0.8]
 
 - Commit messages now follow Conventional Commits format by default, with style-aware generation that adapts to your repository's existing commit history.
