@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.10]
+
+- Improved commit message generation with detailed conventional commits rules (feat, fix, chore, ci, docs, etc.) for more consistent and structured output
+
 ## [0.0.9]
 
 - Added conventional commits style fallback: the prompt now detects your project's commit style and generates messages that match it
