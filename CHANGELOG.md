@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.12]
+
+- Improved commit message generation with more detailed conventional commits rules and examples, producing higher-quality and more consistent output.
+
 ## [0.0.11]
 
 - Improved commit message generation with detailed conventional commits rules (type, scope, subject, body, footer guidelines)
