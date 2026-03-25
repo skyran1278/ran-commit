@@ -6,6 +6,14 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.13]
+
+- Commit messages now automatically adapt to your project's commitlint configuration, respecting custom rules and scopes
+- Prompt now respects VSCode's git input validation length limits, avoiding truncated messages
+- Improved conventional commits guidance with detailed rules and examples for more accurate output
+- Fixed missing `revert` commit type support
+  </s>
+
 ## [0.0.12]
 
 - Improved commit message generation with more detailed conventional commits rules and examples, producing higher-quality and more consistent output.
