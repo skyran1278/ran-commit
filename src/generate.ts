@@ -1,3 +1,4 @@
+import type { CommitlintRules } from './commitlint';
 import { LLMStrategy } from './strategies';
 
 export interface CommitContext {
@@ -6,88 +7,112 @@ export interface CommitContext {
   branch: string;
   log: string;
   userMessage?: string;
+  commitlintRules?: CommitlintRules;
+}
+
+const DEFAULT_TYPES = [
+  'fix',
+  'feat',
+  'build',
+  'chore',
+  'ci',
+  'docs',
+  'style',
+  'refactor',
+  'perf',
+  'test',
+];
+
+function commitlintSection(rules: CommitlintRules): string {
+  const lines: string[] = [];
+
+  if (rules.scopes) {
+    lines.push(`- Allowed scopes: ${rules.scopes.join(', ')}`);
+  }
+  if (rules.headerMaxLength) {
+    lines.push(
+      `- Header (type + scope + description) ≤ ${rules.headerMaxLength} characters`,
+    );
+  }
+  if (rules.bodyMaxLineLength) {
+    lines.push(`- Body lines ≤ ${rules.bodyMaxLineLength} characters`);
+  }
+  if (rules.footerMaxLineLength) {
+    lines.push(`- Footer lines ≤ ${rules.footerMaxLineLength} characters`);
+  }
+  if (rules.subjectCase) {
+    const { condition, cases } = rules.subjectCase;
+    if (condition === 'always') {
+      lines.push(`- Description must be ${cases.join('/')} case`);
+    } else {
+      lines.push(`- Description must not be ${cases.join('/')} case`);
+    }
+  }
+  if (rules.subjectFullStop) {
+    const { condition, char } = rules.subjectFullStop;
+    if (condition === 'never') {
+      lines.push(`- Description must not end with "${char}"`);
+    } else {
+      lines.push(`- Description must end with "${char}"`);
+    }
+  }
+
+  if (lines.length === 0) {
+    return '';
+  }
+  return `\n### Project Rules (from commitlint config)\n\n${lines.join('\n')}\n`;
 }
 
 export function buildPrompt(context: CommitContext): string {
+  const rules = context.commitlintRules;
+  const types = rules?.types ?? DEFAULT_TYPES;
+  const projectRules = rules ? commitlintSection(rules) : '';
+
   return `## Conventional Commits
 
 ### Format
 
 \`\`\`
-<type>[optional scope]: <short description>
+<type>[optional scope]: <description>
 
-- explain the motivation behind this change
+[optional body]
+
+[optional footer(s)]
 \`\`\`
 
-### Type Choices
+### Types
 
-Use one of: fix, feat, build, chore, ci, docs, style, refactor, perf, test
+Use one of: ${types.join(', ')}
 
-- feat: adds a new feature
-- fix: represents a bug fix
-- BREAKING CHANGE: add ! before : in type/scope, or include BREAKING CHANGE: footer
-  - signals when: removing/renaming public fields or functions, changing function signatures, removing supported values
+- feat: a new feature
+- fix: a bug fix
+- BREAKING CHANGE: append ! after type/scope, or add a BREAKING CHANGE: footer
 
-### Guidelines
+### Rules
 
-**description:**
-
-- imperative, present tense, lowercase start, no period
-- immediately follows the colon and space
-
-**body** (include by default; omit only for trivial changes like typo fixes):
-
-- blank line after description
-- use dashes (-) for bullet points
-- imperative, present tense, lowercase start, no period
-- each line ≤ 80 characters
-- explain the motivation (WHY), not just what changed
-
-**footer (optional):**
-
-- one blank line after body
-- token format: Token: value or Token #value
-- BREAKING CHANGE MUST be uppercase
+- Separate description from body with a blank line
+- Footer uses git trailer format: \`Token: value\` or \`Token #value\`
+- BREAKING CHANGE footer must be uppercase
 
 ### Examples
 
 \`\`\`
-fix(auth): add refresh token logic
-
-- users were unexpectedly logged out when token expired silently
+feat(lang): add Polish language
 \`\`\`
 
 \`\`\`
-refactor(api)!: split User name into firstName and lastName
+fix: prevent racing of requests
 
-- downstream callers reading user.name will break; must migrate to firstName/lastName
+- introduce a request id and reference to latest request
+- dismiss incoming responses other than from latest request
 \`\`\`
 
-### Validation Checklist
+\`\`\`
+feat(api)!: send an email to the customer when a product is shipped
 
-- type is one of the allowed types
-- scope (if used) is a noun in parentheses
-- description is lowercase, imperative, no trailing period
-- body begins with a blank line after description
-- body uses - bullet points (never prose paragraphs)
-- every line ≤ 80 characters
-- breaking changes marked with ! or BREAKING CHANGE: footer
-
-### Common Mistakes
-
-| Mistake | Fix |
-| feat: Added new button | feat: add new button (imperative, lowercase) |
-| fix: fixed bug. | fix: fix bug (no period, imperative) |
-| Body immediately after description | Add blank line between description and body |
-| Line > 80 chars | Break into multiple lines |
-| breaking change: in footer | Must be BREAKING CHANGE: (uppercase) |
-| No body on non-trivial change | Add body explaining motivation (WHY) |
-| Body written as prose paragraph | Use - bullet points instead |
-| feat!(scope): ... — ! before scope | ! goes after scope: feat(scope)!: ... |
-| feat!: ... — ! before colon, no scope | feat!: ... ✅ (no scope) |
-| Renamed/removed public field with no ! | Add ! after type/scope: refactor(api)!: ... |
-| Changed function signature with no ! | Add ! after type/scope: feat(auth)!: ... |
-
+BREAKING CHANGE: \`]notify\` method signature changed
+\`\`\`
+${projectRules}
 ## Context
 
 - Current git diff:

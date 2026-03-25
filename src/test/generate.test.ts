@@ -3,7 +3,11 @@ import type { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { Writable } from 'stream';
 
-import { generateCommitMessage, type CommitContext } from '../generate';
+import {
+  buildPrompt,
+  generateCommitMessage,
+  type CommitContext,
+} from '../generate';
 import { ClaudeCliStrategy, LLMStrategy } from '../strategies';
 
 const DEFAULT_CONTEXT: CommitContext = {
@@ -131,6 +135,75 @@ suite('generateCommitMessage', () => {
       }),
     );
     assert.ok(!capturedPrompt.includes('- User instructions:'));
+  });
+});
+
+suite('buildPrompt with commitlintRules', () => {
+  test('uses custom types from commitlint rules', () => {
+    const prompt = buildPrompt({
+      ...DEFAULT_CONTEXT,
+      commitlintRules: { types: ['feat', 'fix', 'chore'] },
+    });
+    assert.ok(prompt.includes('Use one of: feat, fix, chore'));
+    assert.ok(!prompt.includes('build, chore, ci, docs'));
+  });
+
+  test('includes scopes when provided', () => {
+    const prompt = buildPrompt({
+      ...DEFAULT_CONTEXT,
+      commitlintRules: { scopes: ['core', 'ui'] },
+    });
+    assert.ok(prompt.includes('Allowed scopes: core, ui'));
+  });
+
+  test('uses custom header max length', () => {
+    const prompt = buildPrompt({
+      ...DEFAULT_CONTEXT,
+      commitlintRules: { headerMaxLength: 72 },
+    });
+    assert.ok(prompt.includes('≤ 72 characters'));
+  });
+
+  test('uses custom body max line length', () => {
+    const prompt = buildPrompt({
+      ...DEFAULT_CONTEXT,
+      commitlintRules: { bodyMaxLineLength: 100 },
+    });
+    assert.ok(prompt.includes('≤ 100 characters'));
+  });
+
+  test('uses default types when no commitlint rules', () => {
+    const prompt = buildPrompt(DEFAULT_CONTEXT);
+    assert.ok(
+      prompt.includes(
+        'Use one of: fix, feat, build, chore, ci, docs, style, refactor, perf, test',
+      ),
+    );
+  });
+
+  test('adapts subject case guidance', () => {
+    const prompt = buildPrompt({
+      ...DEFAULT_CONTEXT,
+      commitlintRules: {
+        subjectCase: { condition: 'always', cases: ['lower-case'] },
+      },
+    });
+    assert.ok(prompt.includes('must be lower-case case'));
+  });
+
+  test('adapts subject full stop guidance', () => {
+    const prompt = buildPrompt({
+      ...DEFAULT_CONTEXT,
+      commitlintRules: {
+        subjectFullStop: { condition: 'never', char: '.' },
+      },
+    });
+    assert.ok(prompt.includes('must not end with "."'));
+  });
+
+  test('no project rules section without commitlint config', () => {
+    const prompt = buildPrompt(DEFAULT_CONTEXT);
+    assert.ok(!prompt.includes('Project Rules'));
   });
 });
 

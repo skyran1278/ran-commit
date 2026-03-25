@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { loadCommitlintRules } from './commitlint';
 import { generateCommitMessage } from './generate';
 import { getGitContext } from './git';
 import {
@@ -113,7 +114,11 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       const userMessage = repo.inputBox.value.trim();
-      const gitContext = await getGitContext(repo, userMessage || undefined);
+      const repoRoot = repo.rootUri.fsPath;
+      const [gitContext, commitlintRules] = await Promise.all([
+        getGitContext(repo, userMessage || undefined),
+        loadCommitlintRules(repoRoot),
+      ]);
       if (!gitContext) {
         vscode.window.showWarningMessage(
           'No changes found to generate a commit message from',
@@ -133,6 +138,9 @@ export function activate(context: vscode.ExtensionContext) {
           }
 
           try {
+            if (commitlintRules) {
+              gitContext.commitlintRules = commitlintRules;
+            }
             const generated = await generateCommitMessage(gitContext, strategy);
             repo.inputBox.value = userMessage
               ? `${userMessage}\n\n${generated}`
