@@ -176,7 +176,7 @@ suite('buildPrompt with commitlintRules', () => {
     const prompt = buildPrompt(DEFAULT_CONTEXT);
     assert.ok(
       prompt.includes(
-        'Use one of: fix, feat, build, chore, ci, docs, style, refactor, perf, test',
+        'Use one of: fix, feat, build, chore, ci, docs, style, refactor, perf, test, revert',
       ),
     );
   });

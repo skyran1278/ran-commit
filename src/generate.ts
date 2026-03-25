@@ -23,6 +23,7 @@ const DEFAULT_TYPES = [
   'refactor',
   'perf',
   'test',
+  'revert',
 ];
 
 function commitlintSection(rules: CommitlintRules): string {
@@ -118,7 +119,7 @@ fix: prevent racing of requests
 \`\`\`
 feat(api)!: send an email to the customer when a product is shipped
 
-BREAKING CHANGE: \`]notify\` method signature changed
+BREAKING CHANGE: \`notify\` method signature changed
 \`\`\`
 ${projectRules}
 ## Context
