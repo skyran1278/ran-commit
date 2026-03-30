@@ -2,9 +2,11 @@ import { execFile } from 'child_process';
 
 import type { CommitContext } from './generate';
 
+export const _impl = { execFileFn: execFile };
+
 function execGit(repoPath: string, args: string[]): Promise<string> {
   return new Promise((resolve) => {
-    execFile('git', args, { cwd: repoPath }, (err, stdout) => {
+    _impl.execFileFn('git', args, { cwd: repoPath }, (err, stdout) => {
       if (err) {
         resolve('');
       } else {

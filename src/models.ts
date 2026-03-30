@@ -2,6 +2,24 @@ import * as vscode from 'vscode';
 
 const EXTENSION_ID = 'skyran.ran-commit';
 
+export function buildEnumItems(
+  enums: string[],
+  labels: string[],
+): vscode.QuickPickItem[] {
+  return enums
+    .filter((v) => v !== '')
+    .map((v, i) => ({ label: labels[i + 1] ?? v, description: v }));
+}
+
+export function buildChatModelItems(
+  models: Array<{ name: string; vendor: string; family: string }>,
+): vscode.QuickPickItem[] {
+  return models.map((m) => ({
+    label: m.name,
+    description: `${m.vendor}/${m.family}`,
+  }));
+}
+
 export async function selectModel(): Promise<void> {
   const cfg = vscode.workspace.getConfiguration('ranCommit');
   const method = cfg.get<string>('method', 'auto');
@@ -28,9 +46,7 @@ export async function selectModel(): Promise<void> {
       const enums: string[] = schema.enum ?? [];
       const labels: string[] = schema.enumItemLabels ?? [];
 
-      items = enums
-        .filter((v) => v !== '')
-        .map((v, i) => ({ label: labels[i + 1] ?? v, description: v }));
+      items = buildEnumItems(enums, labels);
       break;
     }
     case 'vscode-lm':
@@ -42,10 +58,7 @@ export async function selectModel(): Promise<void> {
         vscode.window.showWarningMessage('No language models available.');
         return;
       }
-      items = available.map((m) => ({
-        label: m.name,
-        description: `${m.vendor}/${m.family}`,
-      }));
+      items = buildChatModelItems(available);
       break;
     }
     default:
