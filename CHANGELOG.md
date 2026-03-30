@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.14]
+
+- Add **Select Model** command to switch LLM models per method (Claude CLI, Perplexity, VS Code LM) without opening settings
+- Split model settings by method (`claudeCliModel`, `perplexityModel`, `vscodeLmModel`) for clearer per-backend configuration
+- Add output channel for prompt debug logging to aid troubleshooting
+
 ## [0.0.13]
 
 - Commit messages now automatically adapt to your project's commitlint configuration, respecting custom rules and scopes
