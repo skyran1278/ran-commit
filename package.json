@@ -91,7 +91,9 @@
             "anthropic/claude-sonnet-4-6",
             "anthropic/claude-opus-4-6",
             "openai/gpt-5.4",
-            "google/gemini-2.5-pro"
+            "google/gemini-2.5-pro",
+            "google/gemini-3.1-pro-preview",
+            "google/gemini-3-flash-preview"
           ],
           "enumItemLabels": [
             "Default (perplexity/sonar)",
@@ -99,7 +101,9 @@
             "Claude Sonnet 4.6",
             "Claude Opus 4.6",
             "GPT-5.4",
-            "Gemini 2.5 Pro"
+            "Gemini 2.5 Pro",
+            "Gemini 3.1 Pro Preview",
+            "Gemini 3 Flash Preview"
           ],
           "default": "",
           "markdownDescription": "Perplexity Agent API model. See [Perplexity models](https://docs.perplexity.ai/docs/agent-api/models) for the full list."
