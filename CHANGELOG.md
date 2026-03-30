@@ -12,7 +12,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Prompt now respects VSCode's git input validation length limits, avoiding truncated messages
 - Improved conventional commits guidance with detailed rules and examples for more accurate output
 - Fixed missing `revert` commit type support
-  </s>
 
 ## [0.0.12]
 
@@ -20,8 +19,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [0.0.11]
 
-- Improved commit message generation with detailed conventional commits rules (type, scope, subject, body, footer guidelines)
-- Cleaner, more readable prompt formatting for better LLM output consistency
+- Improved prompt formatting and readability for more consistent LLM output
 
 ## [0.0.10]
 
@@ -29,7 +27,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [0.0.9]
 
-- Added conventional commits style fallback: the prompt now detects your project's commit style and generates messages that match it
+- Add GitHub Actions workflow for Open VSX Registry and VS Marketplace publishing
 
 ## [0.0.8]
 
@@ -37,12 +35,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [0.0.7]
 
-- Lowered minimum VS Code version requirement to 1.107.0, making the extension compatible with more installations
+- Add build artifacts and config files to `.vscodeignore`; add vsce package step before publish
 
 ## [0.0.6]
 
-- Perplexity API key is now requested inline when not configured, so you no longer need to run a separate setup command
-- Simplified commit message prompt for more consistent, cleaner output
 - Lowered minimum VS Code version requirement to 1.107.0, expanding compatibility
 
 ## [0.0.5]
