@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { loadCommitlintRules } from './commitlint';
-import { generateCommitMessage } from './generate';
+import { buildPrompt, generateCommitMessage } from './generate';
 import { getGitContext } from './git';
 import { selectModel } from './models';
 import {
@@ -99,7 +99,12 @@ async function createStrategy(
   return new ClaudeCliStrategy(cliModel);
 }
 
+const outputChannel = vscode.window.createOutputChannel('Ran Commit', {
+  log: true,
+});
+
 export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(outputChannel);
   context.subscriptions.push(
     vscode.commands.registerCommand('ranCommit.storePerplexityApiKey', () =>
       promptForApiKey(context),
@@ -165,6 +170,7 @@ export function activate(context: vscode.ExtensionContext) {
             if (commitlintRules) {
               gitContext.commitlintRules = commitlintRules;
             }
+            outputChannel.debug(buildPrompt(gitContext));
             const generated = await generateCommitMessage(gitContext, strategy);
             repo.inputBox.value = userMessage
               ? `${userMessage}\n\n${generated}`
