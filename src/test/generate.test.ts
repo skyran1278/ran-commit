@@ -138,6 +138,31 @@ suite('generateCommitMessage', () => {
   });
 });
 
+suite('buildPrompt unified format', () => {
+  test('always includes Conventional Commits heading', () => {
+    const prompt = buildPrompt(DEFAULT_CONTEXT);
+    assert.ok(prompt.includes('## Conventional Commits'));
+  });
+
+  test('includes Conventional Commits heading with commitlint rules', () => {
+    const prompt = buildPrompt({
+      ...DEFAULT_CONTEXT,
+      commitlintRules: { types: ['feat', 'fix'] },
+    });
+    assert.ok(prompt.includes('## Conventional Commits'));
+  });
+
+  test('task instruction references Conventional Commits format', () => {
+    const prompt = buildPrompt(DEFAULT_CONTEXT);
+    assert.ok(prompt.includes('following the Conventional Commits format'));
+  });
+
+  test('recent commits used for tone only', () => {
+    const prompt = buildPrompt(DEFAULT_CONTEXT);
+    assert.ok(prompt.includes('only as reference for tone and wording style'));
+  });
+});
+
 suite('buildPrompt with commitlintRules', () => {
   test('uses custom types from commitlint rules', () => {
     const prompt = buildPrompt({
@@ -246,7 +271,18 @@ suite('buildPrompt with VSCode git settings', () => {
   });
   test('no project rules section without commitlint config', () => {
     const prompt = buildPrompt(DEFAULT_CONTEXT);
-    assert.ok(!prompt.includes('Project Rules'));
+    assert.ok(!prompt.includes('Project Commit Rules'));
+  });
+  test('always enforces format and rules', () => {
+    const prompt = buildPrompt({
+      ...DEFAULT_CONTEXT,
+      subjectLength: 50,
+    });
+    assert.ok(prompt.includes('MUST follow the format and rules above'));
+  });
+  test('enforces format even without length rules', () => {
+    const prompt = buildPrompt(DEFAULT_CONTEXT);
+    assert.ok(prompt.includes('MUST follow the format and rules above'));
   });
 });
 

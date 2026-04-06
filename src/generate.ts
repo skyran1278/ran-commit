@@ -26,19 +26,27 @@ const DEFAULT_TYPES = [
   'revert',
 ];
 
-function commitlintSection(rules: CommitlintRules): string {
+function commitlintRulesLines(
+  rules: CommitlintRules,
+  subjectLength?: number,
+  lineLength?: number,
+): string[] {
   const lines: string[] = [];
 
   if (rules.scopes) {
     lines.push(`- Allowed scopes: ${rules.scopes.join(', ')}`);
   }
-  if (rules.headerMaxLength) {
+
+  const headerMax = rules.headerMaxLength ?? subjectLength;
+  if (headerMax) {
     lines.push(
-      `- Header (type + scope + description) ≤ ${rules.headerMaxLength} characters`,
+      `- Header (type + scope + description) ≤ ${headerMax} characters`,
     );
   }
-  if (rules.bodyMaxLineLength) {
-    lines.push(`- Body lines ≤ ${rules.bodyMaxLineLength} characters`);
+
+  const bodyMax = rules.bodyMaxLineLength ?? lineLength;
+  if (bodyMax) {
+    lines.push(`- Body lines ≤ ${bodyMax} characters`);
   }
   if (rules.footerMaxLineLength) {
     lines.push(`- Footer lines ≤ ${rules.footerMaxLineLength} characters`);
@@ -60,22 +68,25 @@ function commitlintSection(rules: CommitlintRules): string {
     }
   }
 
-  if (lines.length === 0) {
-    return '';
-  }
-  return `\n### Project Rules (from commitlint config)\n\n${lines.join('\n')}\n`;
+  return lines;
 }
 
 export function buildPrompt(context: CommitContext): string {
-  const rules = context.commitlintRules;
-  const types = rules?.types ?? DEFAULT_TYPES;
-  const projectRules = rules ? commitlintSection(rules) : '';
+  const types = context.commitlintRules?.types ?? DEFAULT_TYPES;
 
-  const headerMax = rules?.headerMaxLength ?? context.subjectLength;
-  const bodyMax = rules?.bodyMaxLineLength ?? context.lineLength;
-  const lengthRules =
-    (headerMax ? `\n- Subject line ≤ ${headerMax} characters` : '') +
-    (bodyMax ? `\n- Body lines ≤ ${bodyMax} characters` : '');
+  const ruleLines: string[] = [
+    '- Separate description from body with a blank line',
+    '- Footer uses git trailer format: `Token: value` or `Token #value`',
+    '- BREAKING CHANGE footer must be uppercase',
+  ];
+
+  ruleLines.push(
+    ...commitlintRulesLines(
+      context.commitlintRules ?? {},
+      context.subjectLength,
+      context.lineLength,
+    ),
+  );
 
   return `## Conventional Commits
 
@@ -99,9 +110,7 @@ Use one of: ${types.join(', ')}
 
 ### Rules
 
-- Separate description from body with a blank line
-- Footer uses git trailer format: \`Token: value\` or \`Token #value\`
-- BREAKING CHANGE footer must be uppercase${lengthRules}
+${ruleLines.join('\n')}
 
 ### Examples
 
@@ -121,7 +130,7 @@ feat(api)!: send an email to the customer when a product is shipped
 
 BREAKING CHANGE: \`notify\` method signature changed
 \`\`\`
-${projectRules}
+
 ## Context
 
 - Current git diff:
@@ -134,9 +143,9 @@ ${context.log}
 ${context.userMessage ? `\n- User instructions:\n${context.userMessage}\n` : ''}
 ## Your task
 
-Generate a single git commit message for the above diff.
-Follow the style of the recent commits.
-If the recent commits don't follow a clear style, use the Conventional Commits format above.
+Generate a single git commit message following the Conventional Commits format above.
+Use the recent commits only as reference for tone and wording style.
+You MUST follow the format and rules above.
 Output only the commit message with no code fences, quotes, or explanation.`;
 }
 
