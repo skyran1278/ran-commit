@@ -6,6 +6,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.16]
+
+- Fixed commit message generation to include the full message body in git log output
+- Improved conventional commits prompt with unified, ordered rules for more consistent message formatting
+
 ## [0.0.15]
 
 - Added Gemini 3.1 Pro Preview and Gemini 3 Flash Preview as selectable model options
