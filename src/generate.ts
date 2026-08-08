@@ -168,6 +168,92 @@ You MUST follow the format and rules above.
 Output only the commit message with no code fences, quotes, or explanation.`;
 }
 
+/** Share of the backend's input budget the prompt may occupy. */
+const PROMPT_BUDGET_RATIO = 0.9;
+/** How many times the diff may be halved before we give up shrinking. */
+const MAX_FIT_ATTEMPTS = 6;
+/** Attempts per model request, so one transient failure isn't fatal. */
+const REQUEST_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 300;
+const LOG_OMITTED = '(omitted to fit the model context window)';
+
+/** Seam for unit tests; overriding `delay` keeps the retry path fast. */
+export const _impl = {
+  delay: (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms)),
+};
+
+function truncateDiff(diff: string, maxChars: number): string {
+  if (diff.length <= maxChars) {
+    return diff;
+  }
+  const omitted = diff.length - maxChars;
+  return `${diff.slice(0, maxChars)}\n... [diff truncated: ${omitted} of ${diff.length} characters omitted]`;
+}
+
+/**
+ * Build a prompt that fits the backend's input budget.
+ *
+ * Backends that don't report a token budget (Claude CLI, Perplexity) get the
+ * full prompt, unchanged. For `vscode.lm` the budget is real and small — some
+ * Copilot models cap input at ~12k tokens — and an oversized request is
+ * rejected outright, so an unbounded diff makes large commits fail every time.
+ * The recent-commit log goes first because it is only style guidance; the diff
+ * is then halved until it fits.
+ */
+export async function fitPrompt(
+  context: CommitContext,
+  strategy: LLMStrategy,
+): Promise<string> {
+  const prompt = buildPrompt(context);
+  const limit = strategy.maxInputTokens;
+  if (!limit || !strategy.countTokens) {
+    return prompt;
+  }
+  const countTokens = strategy.countTokens.bind(strategy);
+
+  const budget = Math.floor(limit * PROMPT_BUDGET_RATIO);
+  if ((await countTokens(prompt)) <= budget) {
+    return prompt;
+  }
+
+  let ctx: CommitContext = { ...context, log: LOG_OMITTED };
+  let candidate = buildPrompt(ctx);
+  let diffLength = context.diff.length;
+
+  for (let i = 0; i < MAX_FIT_ATTEMPTS; i++) {
+    if ((await countTokens(candidate)) <= budget) {
+      return candidate;
+    }
+    diffLength = Math.floor(diffLength / 2);
+    ctx = { ...ctx, diff: truncateDiff(context.diff, diffLength) };
+    candidate = buildPrompt(ctx);
+  }
+  return candidate;
+}
+
+async function requestWithRetry(
+  strategy: LLMStrategy,
+  prompt: string,
+): Promise<string> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < REQUEST_ATTEMPTS; attempt++) {
+    try {
+      const message = (await strategy.sendRequest(prompt)).trim();
+      if (message) {
+        return message;
+      }
+      lastError = new Error('Language model returned an empty response');
+    } catch (err: unknown) {
+      lastError = err;
+    }
+    if (attempt < REQUEST_ATTEMPTS - 1) {
+      await _impl.delay(RETRY_DELAY_MS);
+    }
+  }
+  throw lastError;
+}
+
 export async function generateCommitMessage(
   context: CommitContext,
   strategy: LLMStrategy,
@@ -175,13 +261,8 @@ export async function generateCommitMessage(
 ): Promise<string> {
   const { validate, maxRetries = 1, onWarnings } = options;
 
-  const generate = async (ctx: CommitContext): Promise<string> => {
-    const message = (await strategy.sendRequest(buildPrompt(ctx))).trim();
-    if (!message) {
-      throw new Error('Language model returned an empty response');
-    }
-    return message;
-  };
+  const generate = async (ctx: CommitContext): Promise<string> =>
+    requestWithRetry(strategy, await fitPrompt(ctx, strategy));
 
   const message = await generate(context);
   if (!validate) {

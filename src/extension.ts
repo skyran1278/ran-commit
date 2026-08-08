@@ -23,6 +23,10 @@ interface GitAPI {
   getRepository(uri: vscode.Uri): Repository | null;
 }
 
+const outputChannel = vscode.window.createOutputChannel('Ran Commit', {
+  log: true,
+});
+
 async function promptForApiKey(
   context: vscode.ExtensionContext,
 ): Promise<string | undefined> {
@@ -54,16 +58,79 @@ function parseVscodeLmSelector(model: string): {
   return { ...(vendor ? { vendor } : {}), ...(family ? { family } : {}) };
 }
 
+/** The chosen backend plus a human-readable label for logs and errors. */
+interface SelectedStrategy {
+  strategy: LLMStrategy;
+  label: string;
+}
+
+function describeError(err: unknown): string {
+  if (err instanceof vscode.LanguageModelError) {
+    // `code` is what distinguishes a quota/entitlement rejection from a
+    // context-window overflow or a declined consent prompt.
+    return `${err.message} (code: ${err.code})`;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Pick the model with the largest context window.
+ *
+ * `selectChatModels` returns matches in no guaranteed order, and the offered
+ * models differ wildly: a Copilot account can expose both a 12k-token utility
+ * model and a 128k one. Taking `[0]` makes a large diff fail or succeed at
+ * random, so prefer the roomiest model whenever the selector is ambiguous.
+ */
+export function pickLargestContext<T extends { maxInputTokens: number }>(
+  models: readonly T[],
+): T | undefined {
+  return models.reduce<T | undefined>(
+    (best, m) => (!best || m.maxInputTokens > best.maxInputTokens ? m : best),
+    undefined,
+  );
+}
+
+/**
+ * Resolve a chat model, tolerating a stale `vscodeLmModel` setting.
+ *
+ * `selectChatModels` matches `family` exactly, so a renamed or retired model
+ * silently matches nothing. Rather than dropping vscode-lm entirely we say so
+ * in the log and retry with an empty selector.
+ */
+async function selectLmModel(
+  configured: string,
+): Promise<vscode.LanguageModelChat | undefined> {
+  const selector = parseVscodeLmSelector(configured);
+  const matched = pickLargestContext(
+    await vscode.lm.selectChatModels(selector),
+  );
+  if (matched) {
+    return matched;
+  }
+  if (!configured) {
+    return undefined;
+  }
+  outputChannel.warn(
+    `No language model matches "${configured}" (ranCommit.vscodeLmModel). ` +
+      'Falling back to any available model — run "Ran - AI Conventional ' +
+      'Commit: Select Model" to pick a current one.',
+  );
+  return pickLargestContext(await vscode.lm.selectChatModels({}));
+}
+
 async function createStrategy(
   token: vscode.CancellationToken,
   context: vscode.ExtensionContext,
-): Promise<LLMStrategy | null> {
+): Promise<SelectedStrategy | null> {
   const cfg = vscode.workspace.getConfiguration('ranCommit');
   const method = cfg.get<string>('method', 'auto');
 
   if (method === 'claude-cli') {
     const model = cfg.get<string>('claudeCliModel', '') || undefined;
-    return new ClaudeCliStrategy(model);
+    return {
+      strategy: new ClaudeCliStrategy(model),
+      label: `claude-cli (${model ?? 'default'})`,
+    };
   }
 
   if (method === 'perplexity') {
@@ -75,34 +142,41 @@ async function createStrategy(
       }
     }
     const model = cfg.get<string>('perplexityModel', '') || undefined;
-    return new PerplexityStrategy(apiKey, model);
+    return {
+      strategy: new PerplexityStrategy(apiKey, model),
+      label: `perplexity (${model ?? 'default'})`,
+    };
   }
 
-  const selector = parseVscodeLmSelector(cfg.get<string>('vscodeLmModel', ''));
+  const configured = cfg.get<string>('vscodeLmModel', '');
+  const model = await selectLmModel(configured);
 
   if (method === 'vscode-lm') {
-    const models = await vscode.lm.selectChatModels(selector);
-    if (!models[0]) {
+    if (!model) {
       vscode.window.showErrorMessage(
         'No language model available. Install GitHub Copilot or configure a model provider.',
       );
       return null;
     }
-    return new VscodeLmStrategy(models[0], token);
+    return {
+      strategy: new VscodeLmStrategy(model, token),
+      label: `vscode-lm (${model.vendor}/${model.family})`,
+    };
   }
 
   // auto: prefer vscode-lm, fall back to Claude CLI
-  const models = await vscode.lm.selectChatModels(selector);
-  if (models[0]) {
-    return new VscodeLmStrategy(models[0], token);
+  if (model) {
+    return {
+      strategy: new VscodeLmStrategy(model, token),
+      label: `vscode-lm (${model.vendor}/${model.family})`,
+    };
   }
   const cliModel = cfg.get<string>('claudeCliModel', '') || undefined;
-  return new ClaudeCliStrategy(cliModel);
+  return {
+    strategy: new ClaudeCliStrategy(cliModel),
+    label: `claude-cli (${cliModel ?? 'default'}, auto fallback)`,
+  };
 }
-
-const outputChannel = vscode.window.createOutputChannel('Ran Commit', {
-  log: true,
-});
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(outputChannel);
@@ -154,10 +228,11 @@ export function activate(context: vscode.ExtensionContext) {
           title: 'Generating commit message...',
         },
         async (_, token) => {
-          const strategy = await createStrategy(token, context);
-          if (!strategy) {
+          const selected = await createStrategy(token, context);
+          if (!selected) {
             return;
           }
+          outputChannel.info(`Generating with ${selected.label}`);
 
           try {
             const gitCfg = vscode.workspace.getConfiguration('git');
@@ -181,7 +256,7 @@ export function activate(context: vscode.ExtensionContext) {
             });
             const generated = await generateCommitMessage(
               gitContext,
-              strategy,
+              selected.strategy,
               {
                 validate: async (message) => {
                   const result = await validateMessage(message, rules);
@@ -205,9 +280,18 @@ export function activate(context: vscode.ExtensionContext) {
               ? `${userMessage}\n\n${generated}`
               : generated;
           } catch (err: unknown) {
-            vscode.window.showErrorMessage(
-              `Failed to generate commit message: ${err instanceof Error ? err.message : String(err)}`,
+            const detail = describeError(err);
+            outputChannel.error(`${selected.label} failed: ${detail}`);
+            if (err instanceof Error && err.stack) {
+              outputChannel.error(err.stack);
+            }
+            const choice = await vscode.window.showErrorMessage(
+              `Failed to generate commit message via ${selected.label}: ${detail}`,
+              'Show Log',
             );
+            if (choice === 'Show Log') {
+              outputChannel.show();
+            }
           }
         },
       );
