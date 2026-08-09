@@ -6,6 +6,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.21]
+
+- Prompts are now trimmed to fit the model's context window, so large diffs no longer fail with a context-length error
+- Fixed error reporting for the VSCode LM backend — real API failures are surfaced instead of a generic message
+
 ## [0.0.20]
 
 - Claude CLI: disabled all hooks when invoking the `claude` CLI, preventing user-configured hooks from interfering with commit message generation
