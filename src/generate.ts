@@ -170,8 +170,10 @@ Output only the commit message with no code fences, quotes, or explanation.`;
 
 /** Share of the backend's input budget the prompt may occupy. */
 const PROMPT_BUDGET_RATIO = 0.9;
-/** How many times the diff may be halved before we give up shrinking. */
-const MAX_FIT_ATTEMPTS = 6;
+/** How many candidates may be measured before we give up shrinking. */
+const MAX_FIT_ATTEMPTS = 10;
+/** Undershoot each size estimate so one correction lands inside the budget. */
+const SHRINK_MARGIN = 0.95;
 /** Attempts per model request, so one transient failure isn't fatal. */
 const REQUEST_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 300;
@@ -199,7 +201,9 @@ function truncateDiff(diff: string, maxChars: number): string {
  * Copilot models cap input at ~12k tokens — and an oversized request is
  * rejected outright, so an unbounded diff makes large commits fail every time.
  * The recent-commit log goes first because it is only style guidance; the diff
- * is then halved until it fits.
+ * is then cut down to whatever the remaining budget allows. Only a candidate
+ * that has been measured is ever returned — an oversized prompt is rejected by
+ * the backend, which is the failure this exists to avoid.
  */
 export async function fitPrompt(
   context: CommitContext,
@@ -217,19 +221,36 @@ export async function fitPrompt(
     return prompt;
   }
 
-  let ctx: CommitContext = { ...context, log: LOG_OMITTED };
-  let candidate = buildPrompt(ctx);
-  let diffLength = context.diff.length;
+  const base: CommitContext = { ...context, log: LOG_OMITTED };
+  let chars = context.diff.length;
 
   for (let i = 0; i < MAX_FIT_ATTEMPTS; i++) {
-    if ((await countTokens(candidate)) <= budget) {
+    // Always truncate the original diff, never an already-truncated one.
+    const diff = truncateDiff(context.diff, chars);
+    const candidate = buildPrompt({ ...base, diff });
+    const tokens = await countTokens(candidate);
+    if (tokens <= budget) {
       return candidate;
     }
-    diffLength = Math.floor(diffLength / 2);
-    ctx = { ...ctx, diff: truncateDiff(context.diff, diffLength) };
-    candidate = buildPrompt(ctx);
+    if (chars === 0) {
+      // Nothing left to cut: the mandatory prompt alone is over budget.
+      break;
+    }
+    // Scale by the tokens-per-character just measured rather than halving
+    // blindly — every count is a round trip to the provider, and a
+    // multi-megabyte diff needs ~20 halvings to come down. Halving stays as a
+    // floor so an optimistic estimate still makes progress and the loop ends.
+    const perChar = tokens / candidate.length;
+    const fixedChars = candidate.length - diff.length;
+    const next = Math.floor((budget * SHRINK_MARGIN) / perChar) - fixedChars;
+    chars = Math.max(0, Math.min(next, Math.floor(chars / 2)));
   }
-  return candidate;
+
+  throw new Error(
+    `Could not fit the commit prompt into the model's ${limit}-token context ` +
+      'window. Choose a model with a larger context window ("Ran - AI ' +
+      'Conventional Commit: Select Model") or stage a smaller change.',
+  );
 }
 
 async function requestWithRetry(

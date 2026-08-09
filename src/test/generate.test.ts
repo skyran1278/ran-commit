@@ -498,6 +498,53 @@ suite('fitPrompt', () => {
     assert.ok(prompt.includes('d'.repeat(2_000)), 'diff should be intact');
     assert.ok(!prompt.includes('[diff truncated:'));
   });
+
+  // A generated-file or lockfile diff runs to megabytes, which is far past
+  // what a fixed number of halvings can rescue: the prompt used to come back
+  // unmeasured and still over budget.
+  const HUGE_DIFF = 'a'.repeat(4_000_000);
+
+  test('shrinks a multi-megabyte diff to within the budget', async () => {
+    const strategy = makeBudgetedStrategy(12_078);
+    const prompt = await fitPrompt(
+      { ...DEFAULT_CONTEXT, diff: HUGE_DIFF },
+      strategy,
+    );
+    const tokens = await strategy.countTokens!(prompt);
+    assert.ok(
+      tokens <= 12_078,
+      `expected prompt to fit in 12078 tokens, got ${tokens}`,
+    );
+  });
+
+  test('fits a multi-megabyte diff in a handful of round trips', async () => {
+    // Every count is a request to the provider, so shrinking must converge on
+    // the measurement rather than halve its way down.
+    let calls = 0;
+    const strategy = makeBudgetedStrategy(12_078);
+    await fitPrompt(
+      { ...DEFAULT_CONTEXT, diff: HUGE_DIFF },
+      {
+        ...strategy,
+        countTokens: async (text: string) => {
+          calls++;
+          return strategy.countTokens!(text);
+        },
+      },
+    );
+    assert.ok(calls <= 5, `expected at most 5 token counts, made ${calls}`);
+  });
+
+  test('fails when even the diff-free prompt exceeds the budget', async () => {
+    await assert.rejects(
+      () =>
+        fitPrompt(
+          { ...DEFAULT_CONTEXT, diff: BIG_DIFF },
+          makeBudgetedStrategy(100),
+        ),
+      /context window/,
+    );
+  });
 });
 
 suite('generateCommitMessage transient retry', () => {
