@@ -4,11 +4,23 @@ import { EventEmitter } from 'events';
 import { Writable } from 'stream';
 
 import {
+  _impl,
   buildPrompt,
+  fitPrompt,
   generateCommitMessage,
   type CommitContext,
 } from '../generate';
 import { ClaudeCliStrategy, LLMStrategy } from '../strategies';
+
+// Retries are exercised throughout this suite; a real backoff only adds
+// wall-clock time.
+const realDelay = _impl.delay;
+suiteSetup(() => {
+  _impl.delay = async () => {};
+});
+suiteTeardown(() => {
+  _impl.delay = realDelay;
+});
 
 const DEFAULT_CONTEXT: CommitContext = {
   diff: 'diff content',
@@ -421,6 +433,158 @@ suite('buildPrompt with VSCode git settings', () => {
   test('enforces format even without length rules', () => {
     const prompt = buildPrompt(DEFAULT_CONTEXT);
     assert.ok(prompt.includes('MUST follow the format and rules above'));
+  });
+});
+
+/** Backend that reports a token budget, approximating 1 token per 4 chars. */
+function makeBudgetedStrategy(maxInputTokens: number): LLMStrategy {
+  return {
+    sendRequest: async () => 'feat: x',
+    maxInputTokens,
+    countTokens: async (text: string) => Math.ceil(text.length / 4),
+  };
+}
+
+suite('fitPrompt', () => {
+  const BIG_DIFF = 'a'.repeat(200_000);
+
+  test('returns the full prompt when the strategy reports no budget', async () => {
+    const context = { ...DEFAULT_CONTEXT, diff: BIG_DIFF };
+    const prompt = await fitPrompt(context, { sendRequest: async () => 'x' });
+    assert.strictEqual(prompt, buildPrompt(context));
+  });
+
+  test('leaves the prompt untouched when it already fits', async () => {
+    const prompt = await fitPrompt(
+      DEFAULT_CONTEXT,
+      makeBudgetedStrategy(100_000),
+    );
+    assert.strictEqual(prompt, buildPrompt(DEFAULT_CONTEXT));
+  });
+
+  test('shrinks an oversized prompt to within the budget', async () => {
+    const strategy = makeBudgetedStrategy(12_078);
+    const prompt = await fitPrompt(
+      { ...DEFAULT_CONTEXT, diff: BIG_DIFF },
+      strategy,
+    );
+    const tokens = await strategy.countTokens!(prompt);
+    assert.ok(
+      tokens <= 12_078,
+      `expected prompt to fit in 12078 tokens, got ${tokens}`,
+    );
+    assert.ok(prompt.includes('[diff truncated:'), 'diff must be marked cut');
+  });
+
+  test('keeps the Conventional Commits rules after shrinking', async () => {
+    const prompt = await fitPrompt(
+      { ...DEFAULT_CONTEXT, diff: BIG_DIFF, subjectLength: 50 },
+      makeBudgetedStrategy(12_078),
+    );
+    assert.ok(prompt.includes('## Conventional Commits'));
+    assert.ok(prompt.includes('Header (type + scope + description) ≤ 50'));
+    assert.ok(prompt.includes('MUST follow the format and rules above'));
+  });
+
+  test('drops the recent-commit log before touching the diff', async () => {
+    // Budget large enough that omitting the log alone gets under it.
+    const context = {
+      ...DEFAULT_CONTEXT,
+      diff: 'd'.repeat(2_000),
+      log: 'L'.repeat(8_000),
+    };
+    const prompt = await fitPrompt(context, makeBudgetedStrategy(2_000));
+    assert.ok(!prompt.includes('L'.repeat(100)), 'log should be omitted');
+    assert.ok(prompt.includes('d'.repeat(2_000)), 'diff should be intact');
+    assert.ok(!prompt.includes('[diff truncated:'));
+  });
+
+  // A generated-file or lockfile diff runs to megabytes, which is far past
+  // what a fixed number of halvings can rescue: the prompt used to come back
+  // unmeasured and still over budget.
+  const HUGE_DIFF = 'a'.repeat(4_000_000);
+
+  test('shrinks a multi-megabyte diff to within the budget', async () => {
+    const strategy = makeBudgetedStrategy(12_078);
+    const prompt = await fitPrompt(
+      { ...DEFAULT_CONTEXT, diff: HUGE_DIFF },
+      strategy,
+    );
+    const tokens = await strategy.countTokens!(prompt);
+    assert.ok(
+      tokens <= 12_078,
+      `expected prompt to fit in 12078 tokens, got ${tokens}`,
+    );
+  });
+
+  test('fits a multi-megabyte diff in a handful of round trips', async () => {
+    // Every count is a request to the provider, so shrinking must converge on
+    // the measurement rather than halve its way down.
+    let calls = 0;
+    const strategy = makeBudgetedStrategy(12_078);
+    await fitPrompt(
+      { ...DEFAULT_CONTEXT, diff: HUGE_DIFF },
+      {
+        ...strategy,
+        countTokens: async (text: string) => {
+          calls++;
+          return strategy.countTokens!(text);
+        },
+      },
+    );
+    assert.ok(calls <= 5, `expected at most 5 token counts, made ${calls}`);
+  });
+
+  test('fails when even the diff-free prompt exceeds the budget', async () => {
+    await assert.rejects(
+      () =>
+        fitPrompt(
+          { ...DEFAULT_CONTEXT, diff: BIG_DIFF },
+          makeBudgetedStrategy(100),
+        ),
+      /context window/,
+    );
+  });
+});
+
+suite('generateCommitMessage transient retry', () => {
+  test('retries once and succeeds after a transient failure', async () => {
+    let calls = 0;
+    const result = await generateCommitMessage(DEFAULT_CONTEXT, {
+      sendRequest: async () => {
+        calls++;
+        if (calls === 1) {
+          throw new Error('socket hang up');
+        }
+        return 'feat: recovered';
+      },
+    });
+    assert.strictEqual(result, 'feat: recovered');
+    assert.strictEqual(calls, 2);
+  });
+
+  test('retries once when the first response is empty', async () => {
+    let calls = 0;
+    const result = await generateCommitMessage(DEFAULT_CONTEXT, {
+      sendRequest: async () => (++calls === 1 ? '  ' : 'feat: recovered'),
+    });
+    assert.strictEqual(result, 'feat: recovered');
+    assert.strictEqual(calls, 2);
+  });
+
+  test('gives up after the retry and reports the last error', async () => {
+    let calls = 0;
+    await assert.rejects(
+      () =>
+        generateCommitMessage(DEFAULT_CONTEXT, {
+          sendRequest: async () => {
+            calls++;
+            throw new Error('model_not_supported');
+          },
+        }),
+      /model_not_supported/,
+    );
+    assert.strictEqual(calls, 2, 'exactly one retry');
   });
 });
 
